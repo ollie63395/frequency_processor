@@ -80,6 +80,11 @@ def analyze():
 def serve_frontend():
     return send_from_directory("static", "index.html")
 
+# add catch-all route to serve other static files
+@app.route("/<path:path>")
+def serve_static_files(path):
+    return send_from_directory("static", path)
+
 if __name__ == "__main__":
     # Flask dev server on http://localhost:5000
     app.run(host="0.0.0.0", port=5000, debug=True)
