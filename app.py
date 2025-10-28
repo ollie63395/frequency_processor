@@ -1,3 +1,4 @@
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pandas as pd
@@ -9,6 +10,12 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 # limit upload size to 100MB
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 app.config["PREFERRED_URL_SCHEME"] = "https"
+app.config["UPLOAD_FOLDER"] = "/tmp"
+app.config["ENV"] = "production"
+app.config["DEBUG"] = False
+
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 def excel_col_to_index(col_letter: str) -> int:
     """
@@ -41,6 +48,10 @@ def analyze():
 
     excel_file = request.files["file"]
     columns_raw = request.form.get("columns", "")
+
+    print("File received:", excel_file.filename)
+    print("File size (approx):", len(excel_file.read()))
+    excel_file.seek(0)
 
     # Read entire sheet with NO header, so row0 = Excel row1
     # We'll treat row0 as header and ignore it manually.
