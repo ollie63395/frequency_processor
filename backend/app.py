@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pandas as pd
 import re
@@ -75,6 +75,10 @@ def analyze():
         result[letter] = freqs
 
     return jsonify(result), 200
+
+@app.route("/")
+def serve_frontend():
+    return send_from_directory("static", "index.html")
 
 if __name__ == "__main__":
     # Flask dev server on http://localhost:5000
