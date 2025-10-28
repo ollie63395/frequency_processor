@@ -247,6 +247,7 @@
         const resp = await fetch("/analyze", {
           method: "POST",
           body: formData,
+          headers: { "Accept": "application/json" },
         });
 
         if (!resp.ok) {

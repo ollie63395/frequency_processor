@@ -4,10 +4,11 @@ import pandas as pd
 import re
 
 app = Flask(__name__)
-CORS(app)  # allow requests from browser (localhost)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # limit upload size to 100MB
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+app.config["PREFERRED_URL_SCHEME"] = "https"
 
 def excel_col_to_index(col_letter: str) -> int:
     """
