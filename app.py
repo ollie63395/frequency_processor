@@ -14,7 +14,6 @@ app.config["UPLOAD_FOLDER"] = "/tmp"
 app.config["ENV"] = "production"
 app.config["DEBUG"] = False
 
-
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 def excel_col_to_index(col_letter: str) -> int:
@@ -53,21 +52,27 @@ def analyze():
     print("File size (approx):", len(excel_file.read()))
     excel_file.seek(0)
 
-    # Read entire sheet with NO header, so row0 = Excel row1
-    # We'll treat row0 as header and ignore it manually.
+    # Parse column letters
+    col_letters = re.split(r"[,\s;]+", columns_raw.strip())
+    col_letters = [c.strip().upper() for c in col_letters if c]
+
     try:
-        # figure out which columns to read first
-        col_letters = re.split(r"[,\s;]+", columns_raw.strip())
-        col_letters = [c for c in col_letters if c]
-        col_indexes = [excel_col_to_index(c) for c in col_letters]
+        # Build Excel-style range string, e.g. "F:I" for F–I
+        if len(col_letters) == 1:
+            usecols_str = col_letters[0]
+        else:
+            # Pandas understands "F,H,I" or "F:I"
+            usecols_str = ",".join(col_letters)
 
         df = pd.read_excel(
             excel_file,
             header=None,
             dtype=str,
-            usecols=col_indexes,  # only load required columns
+            usecols=usecols_str,   # <<— use Excel letters
             engine="openpyxl"
         )
+
+        print("Shape read:", df.shape)
     except Exception as e:
         return jsonify({"error": f"Failed to read Excel: {e}"}), 400
 
@@ -78,27 +83,17 @@ def analyze():
 
     result = {}
 
-    for letter in col_letters:
-        try:
-            col_idx = excel_col_to_index(letter)
-        except ValueError as ve:
-            result[letter] = {"_error": str(ve)}
-            continue
+    for i, letter in enumerate(col_letters):
 
-        if col_idx >= df.shape[1]:
-            result[letter] = {"_error": f"Column {letter} not in file"}
+        # Each letter corresponds to one of the loaded columns, 0..len(usecols)-1
+        if i >= df.shape[1]:
+            result[letter] = {"_error": f"Column {letter} not found after reading"}
             continue
 
         # take rows starting from index 1 to skip the header row (Excel row1)
-        col_series = df.iloc[1:, col_idx]
-
-        # drop NaN/None and strip whitespace
+        col_series = df.iloc[1:, i]
         col_series = col_series.dropna().map(lambda x: str(x).strip())
-
-        # count frequencies
-        freqs = col_series.value_counts().to_dict()
-
-        result[letter] = freqs
+        result[letter] = col_series.value_counts().to_dict()
 
     return jsonify(result), 200
 
