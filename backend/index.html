@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Excel Frequency Counter</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --panel: #ffffff;
+      --text-main: #111827;
+      --text-dim: #6b7280;
+      --border: #e5e7eb;
+      --radius-lg: 1rem;
+      --shadow: 0 20px 40px rgba(0,0,0,0.06);
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      font-family: var(--font);
+      color: var(--text-main);
+      line-height: 1.4;
+      display: flex;
+      min-height: 100vh;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem;
+      color: var(--text-main);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin: 0 0 1rem;
+    }
+
+    form {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .field-group {
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      padding: 0.6rem 0.7rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background-color: #fff;
+      color: var(--text-main);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--text-dim);
+    }
+
+    button {
+      appearance: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 0.7rem 0.9rem;
+      border-radius: 0.6rem;
+      border: 0;
+      color: #fff;
+      background: #111827;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+      justify-self: start;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .col-card {
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      background: #fff;
+      min-width: 0;
+    }
+
+    .col-card h3 {
+      margin: 0 0 0.75rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 0.4rem 0.5rem;
+      vertical-align: top;
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr + tr td {
+      border-top: 1px solid var(--border);
+    }
+
+    .error-box {
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <section class="card">
+      <h1 class="title">Excel Frequency Counter</h1>
+      <p class="subtitle">
+        1. Pick an .xlsx file.  
+        2. Enter column letters (comma-separated).  
+        3. Get value counts for each column, skipping the first row as header.
+      </p>
+
+      <form id="freqForm">
+        <div class="field-group">
+          <label for="fileInput">Excel file (.xlsx)</label>
+          <input id="fileInput" name="file" type="file" accept=".xlsx,.xls" required />
+        </div>
+
+        <div class="field-group">
+          <label for="columnsInput">Columns (e.g. F, G, H, I)</label>
+          <input
+            id="columnsInput"
+            name="columns"
+            type="text"
+            placeholder="F, G, H, I"
+            required
+          />
+        </div>
+
+        <button id="submitBtn" type="submit">Analyze</button>
+      </form>
+
+      <div id="errorBox" class="error-box hidden"></div>
+    </section>
+
+    <section class="card">
+      <h2 class="title">Results</h2>
+      <p class="subtitle" id="resultsHint">Nothing yet.</p>
+      <div id="results" class="results-grid"></div>
+    </section>
+
+  </div>
+
+  <script>
+    const form = document.getElementById("freqForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const resultsDiv = document.getElementById("results");
+    const resultsHint = document.getElementById("resultsHint");
+    const errorBox = document.getElementById("errorBox");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      errorBox.classList.add("hidden");
+      errorBox.textContent = "";
+
+      const fileInput = document.getElementById("fileInput");
+      const columnsInput = document.getElementById("columnsInput");
+
+      if (!fileInput.files[0]) {
+        showError("Please choose an Excel file first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      formData.append("columns", columnsInput.value);
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Working...";
+
+      try {
+        const resp = await fetch("http://localhost:5000/analyze", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          showError(errData.error || "Request failed.");
+          resetButton();
+          return;
+        }
+
+        const data = await resp.json();
+        renderResults(data);
+      } catch (err) {
+        showError("Network or server error.");
+      }
+
+      resetButton();
+    });
+
+    function resetButton() {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Analyze";
+    }
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove("hidden");
+    }
+
+    function renderResults(data) {
+      // data looks like: { "F": {"a":2,"b":1}, "G": {"x":5}, ... }
+      resultsDiv.innerHTML = ""; // clear old
+      const colLetters = Object.keys(data);
+
+      if (colLetters.length === 0) {
+        resultsHint.textContent = "No columns returned.";
+        return;
+      } else {
+        resultsHint.textContent = "";
+      }
+
+      colLetters.forEach((colLetter) => {
+        const freqDict = data[colLetter];
+
+        const card = document.createElement("div");
+        card.className = "col-card";
+
+        const heading = document.createElement("h3");
+        heading.textContent = `Column ${colLetter}`;
+        card.appendChild(heading);
+
+        // Handle error for that column
+        if (freqDict && freqDict._error) {
+          const err = document.createElement("div");
+          err.className = "error-box";
+          err.textContent = freqDict._error;
+          card.appendChild(err);
+          resultsDiv.appendChild(card);
+          return;
+        }
+
+        const table = document.createElement("table");
+
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        const thVal = document.createElement("th");
+        thVal.textContent = "Value";
+        const thCnt = document.createElement("th");
+        thCnt.textContent = "Count";
+
+        headerRow.appendChild(thVal);
+        headerRow.appendChild(thCnt);
+        thead.appendChild(headerRow);
+
+        const tbody = document.createElement("tbody");
+
+        // freqDict = { "a": 2, "b": 1, ... }
+        const entries = Object.entries(freqDict);
+
+        // If column is empty after skipping row1
+        if (entries.length === 0) {
+          const row = document.createElement("tr");
+
+          const tdVal = document.createElement("td");
+          tdVal.textContent = "(no data)";
+          const tdCnt = document.createElement("td");
+          tdCnt.textContent = "0";
+
+          row.appendChild(tdVal);
+          row.appendChild(tdCnt);
+          tbody.appendChild(row);
+        } else {
+          entries.forEach(([value, count]) => {
+            const row = document.createElement("tr");
+
+            const tdVal = document.createElement("td");
+            tdVal.textContent = value === "" ? "(blank)" : value;
+
+            const tdCnt = document.createElement("td");
+            tdCnt.textContent = count;
+
+            row.appendChild(tdVal);
+            row.appendChild(tdCnt);
+            tbody.appendChild(row);
+          });
+        }
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        card.appendChild(table);
+
+        resultsDiv.appendChild(card);
+      });
+    }
+  </script>
+</body>
+</html>
