@@ -6,6 +6,9 @@ import re
 app = Flask(__name__)
 CORS(app)  # allow requests from browser (localhost)
 
+# limit upload size to 100MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+
 def excel_col_to_index(col_letter: str) -> int:
     """
     Convert Excel column letters (A, B, ..., Z, AA, AB, ...) to 0-based index.
@@ -84,6 +87,11 @@ def serve_frontend():
 @app.route("/<path:path>")
 def serve_static_files(path):
     return send_from_directory("static", path)
+
+# add a health check to confirm Flask is alive on Render
+@app.route("/health")
+def health():
+    return "OK", 200
 
 if __name__ == "__main__":
     # Flask dev server on http://localhost:5000
