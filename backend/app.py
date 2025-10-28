@@ -7,7 +7,7 @@ app = Flask(__name__)
 CORS(app)  # allow requests from browser (localhost)
 
 # limit upload size to 100MB
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 def excel_col_to_index(col_letter: str) -> int:
     """
@@ -44,7 +44,18 @@ def analyze():
     # Read entire sheet with NO header, so row0 = Excel row1
     # We'll treat row0 as header and ignore it manually.
     try:
-        df = pd.read_excel(excel_file, header=None, dtype=str)
+        # figure out which columns to read first
+        col_letters = re.split(r"[,\s;]+", columns_raw.strip())
+        col_letters = [c for c in col_letters if c]
+        col_indexes = [excel_col_to_index(c) for c in col_letters]
+
+        df = pd.read_excel(
+            excel_file,
+            header=None,
+            dtype=str,
+            usecols=col_indexes,  # only load required columns
+            engine="openpyxl"
+        )
     except Exception as e:
         return jsonify({"error": f"Failed to read Excel: {e}"}), 400
 
